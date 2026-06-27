@@ -822,7 +822,6 @@ def render_html(report: dict[str, Any] | None = None, error: str = "", student_i
         curriculum_cards = "".join(curriculum_card_parts)
         advice = "".join(f"<li>{html.escape(item)}</li>" for item in report["advice"])
         questions = "".join(f"<li>{html.escape(item)}</li>" for item in report["reflection_questions"])
-        markdown = html.escape(render_markdown(report))
         body = f"""
         <section class="summary">
           <div>
@@ -873,10 +872,6 @@ def render_html(report: dict[str, Any] | None = None, error: str = "", student_i
             </div>
             <img class="guidance-mascot" src="/new01.png" alt="">
           </div>
-        </section>
-        <section>
-          <h2>마크다운 원문</h2>
-          <textarea readonly>{markdown}</textarea>
         </section>
         <section class="check-panel">
           <div>
@@ -1202,16 +1197,6 @@ def render_html(report: dict[str, Any] | None = None, error: str = "", student_i
       color: #343640;
     }}
     .error {{ border-color: #e3b5b5; color: var(--danger); background: #fff7f7; }}
-    textarea {{
-      width: 100%;
-      min-height: 340px;
-      border: 2px solid var(--line);
-      border-radius: 8px;
-      padding: 16px;
-      font-family: Consolas, "Courier New", monospace;
-      font-size: 13px;
-      resize: vertical;
-    }}
     .final-cta {{
       display: flex;
       align-items: center;
