@@ -7,4 +7,6 @@ if str(ROOT) not in sys.path:
 
 from career_report_app import CareerReportHandler  # noqa: E402
 
-handler = CareerReportHandler
+
+class handler(CareerReportHandler):
+    pass

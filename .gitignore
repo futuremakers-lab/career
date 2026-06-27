@@ -18,3 +18,6 @@ C_*_maskfill.png
 C_*_pattern.png
 C_*_silhouette.png
 C_*_transparent.png
+
+.vercel
+.env*
