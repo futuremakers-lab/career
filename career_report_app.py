@@ -24,7 +24,7 @@ BASE_DIR = Path(__file__).resolve().parent
 REFLECTION_FILE = BASE_DIR / "성찰일지.xlsx"
 COURSE_FILE = BASE_DIR / "2026-2 개설예정 교과목.xlsx"
 CURRICULUM_FILE = BASE_DIR / "교육과정.docx"
-ANALYTICS_FILE = BASE_DIR / "analytics_events.jsonl"
+ANALYTICS_FILE = Path("/tmp/analytics_events.jsonl") if Path("/tmp").exists() else BASE_DIR / "analytics_events.jsonl"
 COURSE_REGISTRATION_URL = "https://portal.biocoss.ac.kr/"
 IMAGE_FILES = {
     "/character.png": BASE_DIR / "new03.png",
