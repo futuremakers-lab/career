@@ -87,6 +87,34 @@ DOMAIN_KEYWORDS = {
     "바이오헬스 창업": ["창업", "사업", "비즈니스", "지식재산", "특허", "시장"],
 }
 
+SURVEY_INTEREST_AREAS = [
+    "디지털 헬스케어",
+    "의료 데이터 분석",
+    "재활 치료",
+    "스마트 헬스 기기",
+    "바이오헬스 디자인",
+    "바이오헬스 창업",
+    "아직 탐색 중",
+]
+SURVEY_KEYWORDS = [
+    "AI",
+    "데이터 분석",
+    "헬스케어",
+    "재활",
+    "운동",
+    "돌봄",
+    "웨어러블",
+    "의료기기",
+    "서비스 디자인",
+    "창업",
+    "비즈니스",
+    "지역사회",
+]
+SURVEY_COMPETENCIES = ["문제해결", "데이터 활용", "콘텐츠 제작", "커뮤니케이션", "기획력", "연구/분석", "협업", "실무 프로젝트"]
+SURVEY_CLASS_STYLES = ["실습 중심", "팀프로젝트", "이론 중심", "발표/토론", "포트폴리오 제작", "현장문제 해결"]
+SURVEY_CONCERNS = ["진로 방향을 모르겠음", "전공을 어떻게 살릴지 고민됨", "취업 준비가 막막함", "포트폴리오가 부족함", "대학원/연구 관심", "창업 관심"]
+SURVEY_INTENSITIES = ["부담 적은 탐색형", "역량 강화형", "진로 집중형", "도전형"]
+
 
 @dataclass
 class StudentRecord:
@@ -427,17 +455,7 @@ def summarize_goal(student: StudentRecord, terms: list[str]) -> str:
     return f"{profile} 배경과 성찰일지 응답을 기준으로 {focus} 관련 진로 목표를 더 구체화할 필요가 있습니다."
 
 
-def build_report(student_id: str) -> dict[str, Any]:
-    records, _headers = load_student_records()
-    normalized_id = normalize_student_id(student_id)
-    student = records.get(normalized_id)
-    if not student:
-        sample_ids = list(records.keys())[:5]
-        raise KeyError(
-            "해당 학번을 찾을 수 없습니다. 입력값의 공백을 확인하거나 성찰일지.xlsx에 있는 익명화 학번을 사용해 주세요. "
-            f"데이터에는 {len(records)}명의 기록이 있습니다."
-        )
-
+def build_report_for_student(student: StudentRecord) -> dict[str, Any]:
     all_answers = " ".join(student.answers.values())
     terms = extract_terms(all_answers, student.department, student.track, student.affiliation)
     courses = recommend_courses(student, terms)
@@ -477,6 +495,70 @@ def build_report(student_id: str) -> dict[str, Any]:
         "advice": advice,
         "reflection_questions": reflection_questions,
     }
+
+
+def build_report(student_id: str) -> dict[str, Any]:
+    records, _headers = load_student_records()
+    normalized_id = normalize_student_id(student_id)
+    student = records.get(normalized_id)
+    if not student:
+        sample_ids = list(records.keys())[:5]
+        raise KeyError(
+            "해당 학번을 찾을 수 없습니다. 입력값의 공백을 확인하거나 성찰일지.xlsx에 있는 익명화 학번을 사용해 주세요. "
+            f"데이터에는 {len(records)}명의 기록이 있습니다."
+        )
+
+    return build_report_for_student(student)
+
+
+def first_param(params: dict[str, list[str]], key: str) -> str:
+    return params.get(key, [""])[0].strip()
+
+
+def build_survey_student(params: dict[str, list[str]]) -> StudentRecord:
+    interest_area = first_param(params, "interest_area")
+    keywords = [item.strip() for item in params.get("keywords", []) if item.strip()]
+    competency = first_param(params, "competency")
+    class_style = first_param(params, "class_style")
+    concern = first_param(params, "concern")
+    intensity = first_param(params, "intensity")
+    free_text = first_param(params, "free_text")
+    department = first_param(params, "department") or "미정"
+    student_id = normalize_student_id(first_param(params, "student_id")) or f"survey-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+
+    if not interest_area or not keywords or not competency or not class_style or not concern:
+        raise ValueError("관심 분야, 관심 키워드, 키우고 싶은 역량, 선호 수업 방식, 현재 진로 고민을 모두 입력해 주세요.")
+
+    keyword_text = ", ".join(keywords)
+    answers = {
+        "문항1": f"관심 분야는 {interest_area}이며, 현재 {department} 배경에서 진로를 탐색하고 있습니다.",
+        "문항2": f"흥미 있는 키워드는 {keyword_text}입니다. {free_text}",
+        "문항3": f"이번 학기에 키우고 싶은 역량은 {competency}입니다.",
+        "문항4": f"선호하는 수업 방식은 {class_style}이며, 추천 강도는 {intensity or '역량 강화형'}을 원합니다.",
+        "문항5": f"현재 진로 고민은 {concern}입니다. {free_text}",
+    }
+    question_texts = {
+        "문항1": "관심 있는 진로/분야",
+        "문항2": "흥미 있는 키워드",
+        "문항3": "키우고 싶은 역량",
+        "문항4": "선호하는 수업 방식",
+        "문항5": "현재 진로 고민",
+    }
+    return StudentRecord(
+        student_id=student_id,
+        college="문항 응답",
+        affiliation="간단 응답 기반",
+        track=interest_area,
+        department=department,
+        answers=answers,
+        question_texts=question_texts,
+    )
+
+
+def build_survey_report(params: dict[str, list[str]]) -> dict[str, Any]:
+    report = build_report_for_student(build_survey_student(params))
+    report["survey_based"] = True
+    return report
 
 
 def course_reason(course: Course, student: StudentRecord) -> str:
@@ -774,10 +856,76 @@ def render_admin_html() -> str:
 </html>"""
 
 
-def render_html(report: dict[str, Any] | None = None, error: str = "", student_id: str = "") -> str:
+def render_select(name: str, label: str, options: list[str], required: bool = True) -> str:
+    option_tags = ['<option value="">선택해 주세요</option>']
+    option_tags.extend(f'<option value="{html.escape(option)}">{html.escape(option)}</option>' for option in options)
+    required_attr = " required" if required else ""
+    return f"""
+      <label>
+        <span>{html.escape(label)}</span>
+        <select name="{html.escape(name)}"{required_attr}>{''.join(option_tags)}</select>
+      </label>
+    """
+
+
+def render_checkbox_group(name: str, label: str, options: list[str]) -> str:
+    items = "".join(
+        f"""
+        <label class="choice">
+          <input type="checkbox" name="{html.escape(name)}" value="{html.escape(option)}">
+          <span>{html.escape(option)}</span>
+        </label>
+        """
+        for option in options
+    )
+    return f"""
+      <fieldset>
+        <legend>{html.escape(label)}</legend>
+        <div class="choice-grid">{items}</div>
+      </fieldset>
+    """
+
+
+def render_survey_form(student_id: str = "") -> str:
+    return f"""
+    <section class="survey-panel">
+      <div>
+        <span class="section-kicker">Quick Survey</span>
+        <h2>성찰일지 데이터가 없을 때 간단 응답으로 추천 받기</h2>
+        <p>아래 문항에 답하면 교과목/교육과정 추천에 필요한 최소 정보를 바탕으로 상담용 리포트를 바로 생성합니다.</p>
+      </div>
+      <form class="survey-form" method="post">
+        <input type="hidden" name="mode" value="survey">
+        <label>
+          <span>학번 또는 구분값</span>
+          <input name="student_id" value="{html.escape(student_id)}" placeholder="선택 입력">
+        </label>
+        <label>
+          <span>학과/전공</span>
+          <input name="department" placeholder="예: 간호학과, 작업치료학과, 미정">
+        </label>
+        {render_select("interest_area", "관심 있는 진로/분야", SURVEY_INTEREST_AREAS)}
+        {render_checkbox_group("keywords", "흥미 있는 키워드 2~3개", SURVEY_KEYWORDS)}
+        {render_select("competency", "이번 학기에 키우고 싶은 역량", SURVEY_COMPETENCIES)}
+        {render_select("class_style", "선호하는 수업 방식", SURVEY_CLASS_STYLES)}
+        {render_select("concern", "현재 가장 고민되는 것", SURVEY_CONCERNS)}
+        {render_select("intensity", "희망하는 추천 강도", SURVEY_INTENSITIES, required=False)}
+        <label class="wide-field">
+          <span>자유 응답 한 줄</span>
+          <input name="free_text" placeholder="예: 데이터 기반 건강관리 서비스에 관심이 있어요.">
+        </label>
+        <button type="submit">간단 응답으로 리포트 생성</button>
+      </form>
+    </section>
+    """
+
+
+def render_html(report: dict[str, Any] | None = None, error: str = "", student_id: str = "", survey: bool = False) -> str:
     body = ""
     if error:
         body = f"<section class='notice error'>{html.escape(error)}</section>"
+        if survey:
+            body += render_survey_form(student_id)
     elif report:
         student: StudentRecord = report["student"]
         courses: list[Course] = report["courses"]
@@ -833,6 +981,7 @@ def render_html(report: dict[str, Any] | None = None, error: str = "", student_i
             <strong>{html.escape(' / '.join(part for part in [student.affiliation, student.track, student.department] if part) or '미정')}</strong>
           </div>
         </section>
+        {('<section class="notice"><strong>간단 응답 기반 리포트입니다.</strong><p>성찰일지 원자료가 없는 상황에서 입력한 문항 응답을 바탕으로 생성했습니다. 상담 시 실제 이수 상황과 관심 변화를 함께 확인해 주세요.</p></section>' if report.get('survey_based') else '')}
         <section>
           <h2>진로목표 요약</h2>
           <p>{html.escape(report['goal_summary'])}</p>
@@ -890,6 +1039,8 @@ def render_html(report: dict[str, Any] | None = None, error: str = "", student_i
           <a class="cta-button" href="/go-course?student_id={urllib.parse.quote(student.student_id)}">수강신청 바로가기</a>
         </section>
         """
+    elif survey:
+        body = render_survey_form(student_id)
 
     return f"""<!doctype html>
 <html lang="ko">
@@ -1015,7 +1166,8 @@ def render_html(report: dict[str, Any] | None = None, error: str = "", student_i
       box-shadow: 0 4px 0 #191a23;
       margin-bottom: 24px;
     }}
-    input {{
+    input,
+    select {{
       min-height: 52px;
       border: 2px solid var(--line);
       border-radius: 8px;
@@ -1035,6 +1187,78 @@ def render_html(report: dict[str, Any] | None = None, error: str = "", student_i
       cursor: pointer;
     }}
     button:hover {{ background: #2f3140; }}
+    .survey-link {{
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin: -8px 0 22px;
+      padding: 18px 20px;
+      border: 2px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      box-shadow: 0 4px 0 #191a23;
+    }}
+    .survey-link p {{ color: #343640; }}
+    .survey-panel {{
+      display: grid;
+      gap: 18px;
+      border: 2px solid var(--line);
+      border-radius: 8px;
+      padding: 24px;
+      background: #f3f3f3;
+      box-shadow: var(--shadow);
+    }}
+    .survey-panel > div > p {{
+      max-width: 820px;
+      color: #343640;
+    }}
+    .survey-form {{
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      margin: 0;
+      box-shadow: none;
+    }}
+    .survey-form label,
+    .survey-form fieldset {{
+      display: grid;
+      gap: 8px;
+      margin: 0;
+      min-width: 0;
+      border: 0;
+      padding: 0;
+      font-weight: 700;
+    }}
+    .survey-form fieldset,
+    .survey-form .wide-field,
+    .survey-form button {{
+      grid-column: 1 / -1;
+    }}
+    .survey-form legend {{
+      margin-bottom: 8px;
+      font-weight: 700;
+    }}
+    .choice-grid {{
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+    }}
+    .choice {{
+      display: flex !important;
+      align-items: center;
+      gap: 8px !important;
+      min-height: 44px;
+      padding: 8px 10px !important;
+      border: 2px solid var(--line) !important;
+      border-radius: 8px;
+      background: #fff;
+      font-weight: 700;
+    }}
+    .choice input {{
+      min-height: auto;
+      width: 18px;
+      height: 18px;
+      padding: 0;
+    }}
     section {{
       border-top: 0;
       padding: 22px 0;
@@ -1247,7 +1471,8 @@ def render_html(report: dict[str, Any] | None = None, error: str = "", student_i
       .section-mascot {{ width: 108px; height: 76px; }}
       .guidance-panel {{ grid-template-columns: 1fr; }}
       .guidance-mascot {{ height: 190px; }}
-      form, .summary, .grid {{ grid-template-columns: 1fr; }}
+      form, .summary, .grid, .survey-form, .choice-grid {{ grid-template-columns: 1fr; }}
+      .survey-link {{ align-items: stretch; flex-direction: column; }}
       .final-cta {{ align-items: stretch; flex-direction: column; }}
       .cta-button {{ width: 100%; }}
       h1 {{ font-size: 32px; }}
@@ -1284,6 +1509,13 @@ def render_html(report: dict[str, Any] | None = None, error: str = "", student_i
         <input name="student_id" value="{html.escape(student_id)}" placeholder="학번 입력" autocomplete="off" required>
         <button type="submit">리포트 생성</button>
       </form>
+      <section class="survey-link">
+        <div>
+          <span class="label">성찰일지 데이터가 없나요?</span>
+          <p>간단 문항에 답하면 응답 내용을 바탕으로 교과목/교육과정 추천 리포트를 만들 수 있습니다.</p>
+        </div>
+        <a class="cta-button" href="/survey">간단 응답 시작</a>
+      </section>
       <section class="intro-card">
         <span class="section-kicker">Report Contents</span>
         <h2>리포트에서 확인할 수 있는 내용</h2>
@@ -1310,6 +1542,11 @@ class CareerReportHandler(BaseHTTPRequestHandler):
         if static_path == "/admin":
             self.respond(render_admin_html())
             return
+        if static_path == "/survey":
+            params = urllib.parse.parse_qs(parsed.query)
+            student_id = params.get("student_id", [""])[0].strip()
+            self.respond(render_html(student_id=student_id, survey=True))
+            return
         if static_path == "/go-course":
             self.handle_course_redirect(parsed.query)
             return
@@ -1320,10 +1557,20 @@ class CareerReportHandler(BaseHTTPRequestHandler):
         body = self.rfile.read(length).decode("utf-8")
         params = urllib.parse.parse_qs(body)
         student_id = params.get("student_id", [""])[0].strip()
+        if params.get("mode", [""])[0] == "survey":
+            try:
+                report = build_survey_report(params)
+                write_analytics_event("survey_lookup", report["student"])
+                self.respond(render_html(report=report, student_id=student_id))
+            except Exception as exc:
+                self.respond(render_html(error=str(exc), student_id=student_id, survey=True), status=400)
+            return
         try:
             report = build_report(student_id)
             write_analytics_event("lookup", report["student"])
             self.respond(render_html(report=report, student_id=student_id))
+        except KeyError as exc:
+            self.respond(render_html(error=str(exc.args[0] if exc.args else exc), student_id=student_id, survey=True))
         except Exception as exc:
             self.respond(render_html(error=str(exc), student_id=student_id), status=400)
 

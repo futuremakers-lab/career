@@ -1,0 +1,10 @@
+.git
+.vercel
+.env*
+__pycache__/
+outputs/
+presentation-assets/
+*.pptx
+*.zip
+~$*.xlsx
+analytics_events.jsonl
